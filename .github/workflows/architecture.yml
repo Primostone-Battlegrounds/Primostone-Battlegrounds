@@ -1,0 +1,30 @@
+name: Primostone
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  architecture:
+    name: Architecture checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: FurinyaDev/OpenHarness
+          ref: aebb0c2255a5df275491009285c1a23d03f90771
+          path: .openharness-tool
+          persist-credentials: false
+      - name: Validate Backlog, Gate 0, and PR size
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.openharness-tool
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/check_bootstrap.py --base "$PR_BASE" --event "$GITHUB_EVENT_PATH"
