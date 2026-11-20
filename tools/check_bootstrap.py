@@ -10,6 +10,7 @@ import subprocess
 
 from openharness.backlog import authorize, local_corpus
 from openharness.repository import Repository
+from check_gitflow import route, ai_review
 
 
 EXPERIMENTS = {f'g0-{i}' for i in range(1, 7)}
@@ -161,21 +162,39 @@ def verify_report_merge(repo, base, config, item):
     return number, endpoint, pull, merge
 
 
-def verify_merged_gate(repo, base, config):
+def verify_merged_gate(repo, base, config, require_main=True):
     number, endpoint, pull, merge = verify_report_merge(repo, base, config, GATE)
     require(all(gate_report(merge, item) == gate_report(base, item) for item in EXPERIMENTS | {GATE}),
             'Gate 0 evidence changed after review; resolve the discrepancy before proceeding')
-    pages = json.loads(run('gh', 'api', '--paginate', '--slurp', endpoint + '/reviews'))
-    review_states = {r['user']['login'].lower(): (r['state'], r['commit_id'])
-                     for page in pages for r in page if r.get('user') and
-                     r.get('submitted_at') and r['submitted_at'] <= pull['merged_at'] and
-                     r['state'] in {'APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'}}
-    require(any(login != pull['user']['login'].lower() and state == ('APPROVED', pull['head']['sha'])
-                for login, state in review_states.items()), 'G0-VERIFY needs an independent approval of its final head')
-    print(f'G0-VERIFY: native PR #{number}, merged at {merge}, independent approval observed')
+    ai_review(config, pull)
+    if require_main:
+        main = json.loads(run('gh', 'api', f'repos/{config["repository"]}/git/ref/heads/main'))['object']['sha']
+        run('git', 'merge-base', '--is-ancestor', merge, main)
+        require(all(gate_report(main, item) == gate_report(base, item) for item in EXPERIMENTS | {GATE}),
+                'First Gate 0 evidence must be released into main before M0–M2')
+    print(f'G0-VERIFY: PR #{number}, merged at {merge}, independent AI review observed')
 
 
 def validate_pr(repo, base, head, candidate, config, event):
+    if event:
+        pr = event['pull_request']
+        require(run('git', 'rev-parse', f'{head}^1', f'{head}^2').splitlines() ==
+                [base, pr['head']['sha']], 'Test the exact GitHub PR merge candidate')
+        if route(base, head, config, event):
+            if pr['head']['ref'] != 'main':
+                corrections = set(filter(None, run('git', 'diff', '--name-only', '-z', '--no-renames',
+                                                  pr.get('_release_source', base), head).split('\0')))
+                require(not any(p.startswith(('backlog/', '.harness/', '.github/')) or
+                                p in {'BACKLOG.md', 'AGENTS.md', 'tools/check_bootstrap.py', 'tools/check_gitflow.py'}
+                                for p in corrections), 'Release and hotfix paths must freeze task authority and controls')
+                downstream_fix = any(not p.startswith(('experiments/gate0/', REPORTS, 'docs/releases/'))
+                                     for p in corrections)
+                verify_merged_gate(repo, head, config,
+                                   require_main=pr['head']['ref'].startswith('hotfix/') or downstream_fix)
+                if not pr['head']['ref'].startswith('release/'):
+                    changes(base, head)
+            ai_review(config, pr)
+            return
     changed = changes(base, head)
     tracks_tasks = run('git', 'ls-tree', '--name-only', base, '--', CONFIG).strip()
     tasks = candidate['tasks']
@@ -186,9 +205,12 @@ def validate_pr(repo, base, head, candidate, config, event):
                 [base, pr['head']['sha']], 'Test the exact GitHub PR merge candidate')
     require(len(matches) <= 1, 'Use one Work-Item line')
     item = matches[0].lower() if matches else None
-    maintenance = {'README.md', 'AGENTS.md', 'BACKLOG.md', 'tools/check_bootstrap.py',
-                   'docs/architecture/requirements-and-gaps.md', 'docs/verification/bootstrap.md'}
-    maintenance |= {p for p in changed if p.startswith(('.github/', '.harness/', 'backlog/tasks/'))}
+    maintenance = {'.gitattributes', '.gitignore', 'README.md', 'AGENTS.md', 'BACKLOG.md', 'tools/check_bootstrap.py', 'tools/check_gitflow.py',
+                   'docs/architecture/gitflow.md', 'docs/plans/2026-11-20-gitflow.md',
+                   'docs/architecture/community-implementations.md', 'docs/architecture/product-baseline.md',
+                   'docs/architecture/release-roadmap.md', 'docs/architecture/ui-art-direction.md',
+                    'docs/architecture/requirements-and-gaps.md', 'docs/verification/bootstrap.md'}
+    maintenance |= {p for p in changed if p.startswith(('.github/', '.harness/', 'backlog/tasks/', 'tests/'))}
     if not tracks_tasks:
         require(not any(t['status'] == 'Done' for t in tasks.values()) and all(
             path in maintenance or path.startswith(('docs/architecture/', 'docs/verification/bootstrap'))
@@ -199,9 +221,10 @@ def validate_pr(repo, base, head, candidate, config, event):
     baseline = local_corpus(repo, base, baseline_config['work'])
     old = baseline['tasks']
     finished = {k for k in tasks if tasks[k]['status'] == 'Done' and old.get(k, {}).get('status') != 'Done'}
+    started = {k for k in tasks if tasks[k]['status'] == 'In Progress' and old.get(k, {}).get('status') != 'In Progress'}
     active_paths = changed - maintenance
     downstream = {p for p in active_paths if not p.startswith(('experiments/gate0/', REPORTS))}
-    if downstream or finished - EXPERIMENTS - {GATE}:
+    if downstream or (finished | started) - EXPERIMENTS - {GATE} or item in old and old[item]['milestone'] != 'G0':
         require(all(old[k]['status'] == 'Done' for k in EXPERIMENTS | {GATE}),
                 'G0-VERIFY and all six passes must already be on target before downstream work')
         if event:
@@ -210,15 +233,18 @@ def validate_pr(repo, base, head, candidate, config, event):
         return
     if not item:
         require(not finished and not active_paths, 'Work or completion changes require one Work-Item')
+        ai_review(config, pr)
         return
 
     authorize(baseline, baseline_config['work'], item, pr['user']['login'])
     require(item in tasks, 'A task PR must preserve its own Backlog record')
-    require(pr['head']['ref'].startswith(f'codex/backlog-{item}-'), 'Use the task-bound OpenHarness branch')
+    require(pr['base']['ref'] == 'develop' and pr['head']['ref'] == f'task/{item}' and
+            pr['head']['repo']['full_name'] == config['repository'], 'Use same-repository task/<id> into develop')
     task_path_prefix = f'backlog/tasks/{item} - '
     require(all(path in old[item]['modified_files'] or path.startswith(task_path_prefix) for path in changed),
             f'{item}: PR includes a path outside its baseline ownership')
     require(finished <= {item}, 'A task PR can close only its own task')
+    ai_review(config, pr)
     if item in finished and item in EXPERIMENTS | {GATE}:
         require(report_pr(gate_report(head, item), config) == pr['number'], f'{item}: evidence must bind this PR')
         if item == GATE:
