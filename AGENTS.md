@@ -1,4 +1,10 @@
-# Primostone: Battlegrounds
+# Primostone: Battlegrounds — 已终止（2026-11-20）
+
+> **STOP / NO WORK AUTHORIZED.** 项目负责人已终止本项目。禁止任何 Agent 自动认领 Backlog、继续研发、验证 Gate 0、制作发布或自行转换为 PvE。任务文件即使显示 To Do/Blocked，也只是历史资料，**不再授权工作**。
+>
+> [BACKLOG.md 的终止决定](BACKLOG.md#项目终止决定2026-11-20)优先于下方旧规则。OpenHarness 入口、Worker 和 PR 流程均不应被用来恢复任务。仅允许负责人明确指示的归档或文档修订；重启必须重新获得明确立项决定。保留源码和历史，禁止伪造 Done 或实验结论。
+
+## 以下为终止前的历史规范（已停用）
 
 - 从 [README](README.md) 安装固定版本 OpenHarness，按 [.harness/AGENT.md](.harness/AGENT.md) 进入工程。
 - `develop` 上的 [BACKLOG.md](BACKLOG.md) 及任务文件是唯一任务授权来源。任务从已验证的 develop 提交原子认领 `task/<ID>`，独立 worktree，PR 回 develop。先核对依赖实际合入、分配和独占路径。

@@ -1,4 +1,19 @@
-# Backlog
+# Backlog — 历史归档（项目已终止）
+
+## 项目终止决定（2026-11-20）
+
+**状态：已终止 / Discontinued（No-Go）**。项目负责人已决定停止投入，而非等待 Gate 0 解除的临时暂停。
+
+**原因：**（1）千星奇域的真人在线活跃规模难以保证可靠的 PvP 匹配，此为产品可行性风险判断，非已实测的市场统计结论；（2）创作者目前为 Lv3，局内存档需要 Lv4、天梯需要 Lv5，现阶段权限不满足原定规划；（3）负责人本人兴趣与长期维护意愿不足。
+
+**执行结论：**
+- 取消 Gate 0、M0、M1、M2 与 0.0.1–0.4.0 后续迭代，不再启动开发、平台实验、测试、发布、运营或 Agent/Token 投入。
+- [backlog/tasks](backlog/tasks/) 的全部任务、依赖、优先级和状态仅是历史快照。即使仍标注 To Do、In Progress 或 Blocked，也**不得被认领或执行**，不得因依赖解除自动复工，更不得虚构 Done 或测试证据。
+- **不自动转做 PvE/单机版**。只有项目负责人明确重新立项，才能重新规划。
+- 仓库、已有代码、工程工具、AutoTavern 参考研究、文档和 Git 历史保留；不删除资产、不改动产品逻辑、不声称已经发版。仅允许负责人明确授权的归档及文档维护。
+- **本决定优先于下文所有旧的 Worker 认领、任务解锁、迭代与发版指引**。下文作为历史材料保留，失去任务授权效力。
+
+---
 
 本入口与 [backlog/tasks](backlog/tasks/) 组成唯一工作权威，状态、依赖、分配和独占文件仅以 GitHub `develop` 的已合入任务文件为准。[OpenHarness Backlog 契约](https://github.com/FurinyaDev/OpenHarness/blob/aebb0c2255a5df275491009285c1a23d03f90771/docs/backlog-profile.md) · [GitFlow 与 AI 评审](docs/architecture/gitflow.md)
 

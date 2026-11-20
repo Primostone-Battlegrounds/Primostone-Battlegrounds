@@ -1,13 +1,15 @@
 # Primostone: Battlegrounds
 
-以元素反应为核心的原创自动战斗项目，目标平台为《原神》千星奇域。本仓库目前处于工程初始化与平台验证筹备阶段。
+> **已终止（2026-11-20）**：Primostone /《原石战场》停止研发、测试、发布和运营，不再投入 Agent 资源。原因包括千星奇域 PvP 玩家匹配规模风险、创作者 Lv3 的存档及天梯权限限制，以及负责人持续投入兴趣不足。本仓库只保留历史资料。后续所有工作指引均已停用。见 [项目终止决定](BACKLOG.md#项目终止决定2026-11-20)。
+
+以元素反应为核心的原创自动战斗项目，目标平台为《原神》千星奇域。本仓库保存项目终止前的工程初始化及平台验证研究。
 
 - [工作入口与 Gate 0](BACKLOG.md)
 - [参考规则、原创设计与平台差异](docs/architecture/requirements-and-gaps.md)
 - [Bootstrap 验证记录](docs/verification/bootstrap.md)
 - [GitFlow、AI 独立评审与发布](docs/architecture/gitflow.md)
 
-## 工程入口
+## 历史工程入口（已停用）
 
 OpenHarness 历史地址 `CHNISam/OpenHarness` 已迁移到 `FurinyaDev/OpenHarness`。最新发布的不可变版本为 `v0.3.0`（`636947668bbe654dcece449c520cb8df2c3a1bfa`）。本项目采用同一上游已合并但尚未发布的 cooperative 模式，固定主分支提交 `aebb0c2255a5df275491009285c1a23d03f90771`。使用 Python 3.11+、Git 2.38+ 及已认证的 `gh`。[迁移地址](https://github.com/CHNISam/OpenHarness) · [发布记录](https://github.com/FurinyaDev/OpenHarness/releases/tag/v0.3.0) · [固定版本 cooperative 文档](https://github.com/FurinyaDev/OpenHarness/blob/aebb0c2255a5df275491009285c1a23d03f90771/docs/cooperative-workflow.md)
 
