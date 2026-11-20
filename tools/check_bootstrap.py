@@ -197,7 +197,7 @@ def validate_pr(repo, base, head, candidate, config, event):
                 [base, pr['head']['sha']], 'Test the exact GitHub PR merge candidate')
     require(len(matches) <= 1, 'Use one Work-Item line')
     item = matches[0].lower() if matches else None
-    maintenance = {'.gitignore', 'README.md', 'AGENTS.md', 'BACKLOG.md', 'tools/check_bootstrap.py', 'tools/check_gitflow.py',
+    maintenance = {'.gitattributes', '.gitignore', 'README.md', 'AGENTS.md', 'BACKLOG.md', 'tools/check_bootstrap.py', 'tools/check_gitflow.py',
                    'docs/architecture/gitflow.md', 'docs/plans/2026-11-20-gitflow.md',
                    'docs/architecture/community-implementations.md', 'docs/architecture/product-baseline.md',
                    'docs/architecture/release-roadmap.md', 'docs/architecture/ui-art-direction.md',
