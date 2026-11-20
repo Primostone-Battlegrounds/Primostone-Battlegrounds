@@ -28,7 +28,7 @@
   "verification": {
     "commands": [
       [
-        "python3",
+        "python",
         "tools/check_bootstrap.py"
       ]
     ],
