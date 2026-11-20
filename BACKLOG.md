@@ -2,12 +2,14 @@
 
 本入口与 [backlog/tasks](backlog/tasks/) 组成唯一工作权威，状态和依赖以 GitHub `main` 的任务文件为准。[OpenHarness Backlog 契约](https://github.com/FurinyaDev/OpenHarness/blob/aebb0c2255a5df275491009285c1a23d03f90771/docs/backlog-profile.md) · [Backlog.md 1.53.0 参考解析器](https://github.com/MrLesk/Backlog.md/blob/fd20f71493fb4eda44b021aa89f257956f17fb71/src/markdown/parser.ts)
 
-| 阶段 | 可交付结果 |
+候选规则以 [规则与接口基线](docs/architecture/product-baseline.md) 为准。实现 UI 前读 [棋阵界面和原创美术](docs/architecture/ui-art-direction.md)。源码取样与验证见 [社区实现调研](docs/architecture/community-implementations.md)；迭代与发行验收见 [发布路线](docs/architecture/release-roadmap.md)。
+
+| 阶段 | 版本与交付 |
 | --- | --- |
-| Gate 0 | [导入和试玩](backlog/tasks/g0-1%20-%20GIL%20构建导入与运行.md) → [运行时](backlog/tasks/g0-2%20-%20运行时与平台%20API.md) → [重放](backlog/tasks/g0-3%20-%20确定性与战斗重放.md)、[恢复](backlog/tasks/g0-4%20-%20状态编码与恢复.md)、[四人](backlog/tasks/g0-5%20-%20四人同步与失败恢复.md)、[性能](backlog/tasks/g0-6%20-%20PC%20与移动端预算和交互.md) → [G0-VERIFY](backlog/tasks/g0-7%20-%20G0-VERIFY.md) |
-| M0 | 纯 Lua 状态、随机、经济、招募、战斗、对局闭环和快照 |
-| M1 | 可玩垂直切片先合入，再扩到 1 真人 + 7 AI、40–50 个原创随从的单人 MVP |
-| M2 | 按实测平台路径实现四人联机、故障恢复以及 PC / 移动端验收 |
+| Gate 0 | `0.0.1`，六项实机实验证据和 [G0-VERIFY](backlog/tasks/g0-7%20-%20G0-VERIFY.md) 独立复核合入。 |
+| M0 | `0.1.0`，确定性 Lua 核心，两席终局及快照重放验证。 |
+| M1 | `0.2.0`，1 真人 + 1 AI 的垂直切片，有原创规则与样例美术。`0.3.0`，1 真人 + 7 AI、40–50 个原创随从、完整界面与单人恢复。 |
+| M2 | `0.4.0`，四人私有试玩、权威协议、隐私、重连、PC 和移动发布候选。 |
 
 OpenHarness 规定原生 ID 为字母前缀加数字。`g0-7` 是 `G0-VERIFY` 的任务 ID，GitHub PR 使用 `Work-Item: g0-7`。模型字段在原生契约中对应如下。
 
@@ -21,10 +23,26 @@ OpenHarness 规定原生 ID 为字母前缀加数字。`g0-7` 是 `G0-VERIFY` �
 ## 从无历史 Session 开始
 
 1. 按 [README](README.md) 安装并读取 `entry`。确认 Bootstrap PR 已经独立审查、问题已解决并实际合入，且 main 原生检查与审批规则生效。
-2. 读取 `origin/main` 对应任务。`Blocked` 表示环境、能力或证据缺口；解除条件满足后由维护者的任务编排 PR 修改状态和明确映射执行者。`To Do` 或 `In Progress` 仍须满足全部传递依赖为 Done。初始任务均未分配；有多人并行时由编排 PR 补充真实 GitHub 登录映射，一个任务只配一个执行者。
-3. 在工作前观察远端任务分支、打开的 PR、合入记录。使用 `git ls-remote --heads origin 'refs/heads/codex/backlog-*'` 与 `gh pr list --state open --base main --json number,headRefName,author,url`。已有同任务分支或 PR 时，原执行者续接或维护者协调移交。远端分支和 PR 可显示正在进行的工作，不能成为额外完成状态。
-4. 对合法任务运行 `python3 -m openharness --repo . workspace --task <id> --change <short-name>`，进入返回的独立工作树。每个工作树只由一个 Session 写入。多个 Session 只能并行执行依赖互不阻塞且无路径冲突的任务。OpenHarness 不提供远端租约。出现未规划的文件重叠时先更新本 Backlog 依赖，等该变更合入再开工。
-5. 向目标仓库发出一个任务 PR，正文有且仅有一行 `Work-Item: <id>`，并提供可复查验收证据。完成状态在同一 PR 中提交，其他 Session 只有在确认 `main` 上的结果及实际 merge SHA 后才将其视为 Done。维护者独立审批源码、证据和控制面；已批准后可按 OpenHarness 流程 `integrate --pr N`，之后 `release`。任务分配及控制变更通过独立维护 PR 审查。
+2. 读取 `origin/main` 对应任务。`Blocked` 表示环境、能力或证据缺口；解除条件满足后由维护者的任务编排 PR 修改状态和明确映射执行者。`To Do` 或 `In Progress` 仍须满足全部传递依赖为 Done。待分配任务不可认领；有多人并行时由编排 PR 补充真实 GitHub 登录映射，一个任务只配一个执行者。
+3. 在工作前观察远端任务分支、全部打开的 PR、合入记录。使用 `git ls-remote --heads origin 'refs/heads/task/*' 'refs/heads/codex/backlog-*'` 和 `gh pr list --state open --json number,headRefName,baseRefName,author,url`。现有同任务分支或 PR 表示任务已被占用；历史分支、续接和移交由维护者协调。任务完成仍以目标分支合并为准。
+4. 对依赖已合入、已分配且无冲突的任务，用 GitHub 创建引用接口原子认领 `task/<id>`。创建成功后再次核对全部 PR、最新目标分支及独占文件。认领先于实现，每个独立工作树只由一个 Session 写入。OpenHarness 在隔离工作树中绑定原分支。
+5. 向目标仓库发出一个任务 PR，正文有且仅有一行 `Work-Item: <id>`，并提供可复查验收证据。完成状态在同一 PR 中提交，其他 Session 只有在确认 `main` 上的结果及实际 merge SHA 后才将其视为 Done。维护者独立审批源码、证据和控制面；已批准后可按 OpenHarness 流程 `integrate --pr N`，之后 `release`。任务拆分、版本计划、依赖调整和分配通过独立维护 PR 审查。维护 PR 只变更计划和控制，使用真实测试证据，保持 Gate 0 状态及开发限制。
+
+认领时把 `TASK_ID`、`CHANGE_NAME` 和 `TASK_WORKTREE` 设为已验证的任务 ID、短名和当前 Session 的独立路径，在仓库根目录执行。
+
+```sh
+git fetch --prune origin
+gh api --method POST repos/Primostone-Battlegrounds/Primostone-Battlegrounds/git/refs -f "ref=refs/heads/task/${TASK_ID}" -f "sha=$(git rev-parse origin/main)"
+```
+
+GitHub POST 成功才获得认领权。引用已存在或请求失败时重新同步并选择任务。成功并完成并发复查后创建本地工作树。
+
+```sh
+git fetch origin "refs/heads/task/${TASK_ID}:refs/remotes/origin/task/${TASK_ID}"
+git worktree add --track -b "task/${TASK_ID}" "${TASK_WORKTREE}" "origin/task/${TASK_ID}"
+cd "${TASK_WORKTREE}"
+python3 -m openharness --repo . workspace --task "${TASK_ID}" --change "${CHANGE_NAME}" --bind
+```
 
 OpenHarness 将工作树绑定到整个 Backlog 的摘要。其他任务合入或维护 PR 调整分配后，仍在进行的任务可能需要复绑。先在最新 `origin/main` 核对该任务仍归当前执行者、依赖已完成且工作范围未改变。在原任务工作树提交未保存的改动，将最新 `main` 合入任务分支并解决冲突。在干净工作树用原 ID 和 change 名运行 `python3 -m openharness --repo . workspace --task <id> --change <short-name> --bind`，再运行 `preflight` 和候选验证。推送到原分支，重新获取当前 head 的检查和独立审批。任务已被移交或完成时由维护者协调。
 

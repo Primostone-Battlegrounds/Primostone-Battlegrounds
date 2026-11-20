@@ -187,7 +187,9 @@ def validate_pr(repo, base, head, candidate, config, event):
     require(len(matches) <= 1, 'Use one Work-Item line')
     item = matches[0].lower() if matches else None
     maintenance = {'README.md', 'AGENTS.md', 'BACKLOG.md', 'tools/check_bootstrap.py',
-                   'docs/architecture/requirements-and-gaps.md', 'docs/verification/bootstrap.md'}
+                   'docs/architecture/requirements-and-gaps.md', 'docs/verification/bootstrap.md',
+                   'docs/architecture/community-implementations.md', 'docs/architecture/product-baseline.md',
+                   'docs/architecture/release-roadmap.md', 'docs/architecture/ui-art-direction.md'}
     maintenance |= {p for p in changed if p.startswith(('.github/', '.harness/', 'backlog/tasks/'))}
     if not tracks_tasks:
         require(not any(t['status'] == 'Done' for t in tasks.values()) and all(
@@ -214,7 +216,10 @@ def validate_pr(repo, base, head, candidate, config, event):
 
     authorize(baseline, baseline_config['work'], item, pr['user']['login'])
     require(item in tasks, 'A task PR must preserve its own Backlog record')
-    require(pr['head']['ref'].startswith(f'codex/backlog-{item}-'), 'Use the task-bound OpenHarness branch')
+    head_ref = pr['head']
+    require(head_ref['ref'] == f'task/{item}' and
+            (head_ref.get('repo') or {}).get('full_name', '').lower() == baseline_config['repository'].lower(),
+            f'{item}: use the claimed target repository branch task/{item}')
     task_path_prefix = f'backlog/tasks/{item} - '
     require(all(path in old[item]['modified_files'] or path.startswith(task_path_prefix) for path in changed),
             f'{item}: PR includes a path outside its baseline ownership')
