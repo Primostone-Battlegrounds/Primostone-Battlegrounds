@@ -2,6 +2,7 @@
 
 import argparse
 from functools import cache
+from hashlib import sha256
 import json
 from pathlib import Path, PurePosixPath
 import re
@@ -39,9 +40,26 @@ def read_blob(ref, path):
 
 def gate_report(ref, item):
     report = read_blob(ref, f'{REPORTS}{item}.md')
+    require(re.findall(r'^Result: (.+)$', report, re.M) == ['PASS'],
+            f'{item}: the platform report must record exactly one PASS result')
     require(re.search(r'^Platform evidence: https://[^\s]+$', report, re.M),
             f'{item}: a platform evidence URL is required')
     return report
+
+
+def report_pr(report, config):
+    origin = f'https://github.com/{config["repository"]}/pull/'
+    markers = re.findall(r'^Verification pull request: ' + re.escape(origin) + r'([1-9][0-9]*)$', report, re.M)
+    require(len(markers) == 1, 'Each Gate 0 report must name exactly one verification PR')
+    return int(markers[0])
+
+
+def check_experiment_hashes(ref):
+    summary = gate_report(ref, GATE)
+    recorded = re.findall(r'^Experiment evidence: (.+)$', summary, re.M)
+    expected = {f'{item} {sha256(gate_report(ref, item).encode()).hexdigest()}' for item in EXPERIMENTS}
+    require(len(recorded) == len(expected) and set(recorded) == expected,
+            'G0-VERIFY must record the SHA-256 of each of its six experiment reports')
 
 
 def validate(repo, ref, config):
@@ -71,7 +89,7 @@ def validate(repo, ref, config):
         if task['status'] == 'Done':
             require(all(tasks[p]['status'] == 'Done' for p in ancestors(item)), f'{item}: unfinished prerequisite')
             if milestone == 'G0':
-                gate_report(ref, item)
+                report_pr(gate_report(ref, item), config)
 
         files = task.get('modified_files', [])
         require(files and len(files) == len(set(files)), f'{item}: unique exclusive paths required')
@@ -105,6 +123,8 @@ def validate(repo, ref, config):
         largest_budget = max(largest_budget[0], lines), max(largest_budget[1], files)
     print(f'Backlog: {len(tasks)} tasks, {sum(len(t["dependencies"]) for t in tasks.values())} dependencies, '
           f'{len(scope)} owned paths; largest budget {largest_budget[0]} lines / {largest_budget[1]} files')
+    if tasks[GATE]['status'] == 'Done':
+        check_experiment_hashes(ref)
     return observation
 
 
@@ -122,32 +142,37 @@ def changes(base, head):
     return set(changed)
 
 
-def verify_merged_gate(repo, base, config):
-    origin = f'https://github.com/{config["repository"]}/pull/'
-    marker = re.search(r'^Verification pull request: ' + re.escape(origin) + r'([1-9][0-9]*)$',
-                       gate_report(base, GATE), re.M)
-    require(marker, 'G0-VERIFY report must name its GitHub PR')
-    endpoint = f'repos/{config["repository"]}/pulls/{marker[1]}'
+def verify_report_merge(repo, base, config, item):
+    report = gate_report(base, item)
+    number = report_pr(report, config)
+    endpoint = f'repos/{config["repository"]}/pulls/{number}'
     pull = json.loads(run('gh', 'api', endpoint))
     require(pull['merged'] and pull['base']['ref'] == config['target'] and
-            re.findall(r'^Work-Item: (\S+)$', pull['body'] or '', re.M) == [GATE],
-            'G0-VERIFY must be merged on the target branch')
+            re.findall(r'^Work-Item: (\S+)$', pull['body'] or '', re.M) == [item],
+            f'{item}: PR #{number} must be merged on the target branch for this task')
     merge = pull['merge_commit_sha']
-    require(re.fullmatch(r'[0-9a-f]{40}', merge or ''), 'G0-VERIFY merge SHA unavailable')
+    require(re.fullmatch(r'[0-9a-f]{40}', merge or ''), f'{item}: merge SHA unavailable')
     run('git', 'merge-base', '--is-ancestor', merge, base)
     before = local_corpus(repo, f'{merge}^1', config['work'])['tasks']
     after = local_corpus(repo, merge, config['work'])['tasks']
-    require(before[GATE]['status'] != 'Done' and after[GATE]['status'] == 'Done',
-            'The G0-VERIFY PR must be the commit that closed the gate')
+    require(before[item]['status'] != 'Done' and after[item]['status'] == 'Done',
+            f'{item}: PR #{number} must be the merge that completed this task')
+    require(gate_report(merge, item) == report, f'{item}: the report changed after its PR merged')
+    return number, endpoint, pull, merge
+
+
+def verify_merged_gate(repo, base, config):
+    number, endpoint, pull, merge = verify_report_merge(repo, base, config, GATE)
     require(all(gate_report(merge, item) == gate_report(base, item) for item in EXPERIMENTS | {GATE}),
             'Gate 0 evidence changed after review; resolve the discrepancy before proceeding')
     pages = json.loads(run('gh', 'api', '--paginate', '--slurp', endpoint + '/reviews'))
     review_states = {r['user']['login'].lower(): (r['state'], r['commit_id'])
                      for page in pages for r in page if r.get('user') and
+                     r.get('submitted_at') and r['submitted_at'] <= pull['merged_at'] and
                      r['state'] in {'APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'}}
     require(any(login != pull['user']['login'].lower() and state == ('APPROVED', pull['head']['sha'])
                 for login, state in review_states.items()), 'G0-VERIFY needs an independent approval of its final head')
-    print(f'G0-VERIFY: native PR #{marker[1]}, merged at {merge}, independent approval observed')
+    print(f'G0-VERIFY: native PR #{number}, merged at {merge}, independent approval observed')
 
 
 def validate_pr(repo, base, head, candidate, config, event):
@@ -188,14 +213,17 @@ def validate_pr(repo, base, head, candidate, config, event):
         return
 
     authorize(baseline, baseline_config['work'], item, pr['user']['login'])
+    require(item in tasks, 'A task PR must preserve its own Backlog record')
     require(pr['head']['ref'].startswith(f'codex/backlog-{item}-'), 'Use the task-bound OpenHarness branch')
     task_path_prefix = f'backlog/tasks/{item} - '
     require(all(path in old[item]['modified_files'] or path.startswith(task_path_prefix) for path in changed),
             f'{item}: PR includes a path outside its baseline ownership')
     require(finished <= {item}, 'A task PR can close only its own task')
-    if item == GATE and item in finished:
-        url = f'Verification pull request: https://github.com/{config["repository"]}/pull/{pr["number"]}'
-        require(url in gate_report(head, GATE).splitlines(), 'G0-VERIFY evidence must bind this PR')
+    if item in finished and item in EXPERIMENTS | {GATE}:
+        require(report_pr(gate_report(head, item), config) == pr['number'], f'{item}: evidence must bind this PR')
+        if item == GATE:
+            for experiment in sorted(EXPERIMENTS):
+                verify_report_merge(repo, base, baseline_config, experiment)
 
 
 def main():

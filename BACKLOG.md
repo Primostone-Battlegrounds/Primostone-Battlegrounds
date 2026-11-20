@@ -26,13 +26,15 @@ OpenHarness 规定原生 ID 为字母前缀加数字。`g0-7` 是 `G0-VERIFY` �
 4. 对合法任务运行 `python3 -m openharness --repo . workspace --task <id> --change <short-name>`，进入返回的独立工作树。每个工作树只由一个 Session 写入。多个 Session 只能并行执行依赖互不阻塞且无路径冲突的任务。OpenHarness 不提供远端租约。出现未规划的文件重叠时先更新本 Backlog 依赖，等该变更合入再开工。
 5. 向目标仓库发出一个任务 PR，正文有且仅有一行 `Work-Item: <id>`，并提供可复查验收证据。完成状态在同一 PR 中提交，其他 Session 只有在确认 `main` 上的结果及实际 merge SHA 后才将其视为 Done。维护者独立审批源码、证据和控制面；已批准后可按 OpenHarness 流程 `integrate --pr N`，之后 `release`。任务分配及控制变更通过独立维护 PR 审查。
 
+OpenHarness 将工作树绑定到整个 Backlog 的摘要。其他任务合入或维护 PR 调整分配后，仍在进行的任务可能需要复绑。先在最新 `origin/main` 核对该任务仍归当前执行者、依赖已完成且工作范围未改变。在原任务工作树提交未保存的改动，将最新 `main` 合入任务分支并解决冲突。在干净工作树用原 ID 和 change 名运行 `python3 -m openharness --repo . workspace --task <id> --change <short-name> --bind`，再运行 `preflight` 和候选验证。推送到原分支，重新获取当前 head 的检查和独立审批。任务已被移交或完成时由维护者协调。
+
 ## Gate 0 证据与解除条件
 
 目前六项实验以及 `G0-VERIFY` 均为 `Blocked`。先安排创作账号、区服、版本匹配的原神客户端与编辑器、PC 和移动真机以及四人私有试玩环境。Worker 只构建任务所需探针；按任务正文定量验收。一项必要实验无法实测或失败就保持 `Blocked`，记录缺失环境或能力和复测步骤。
 
-每个实验证据文件 `docs/verification/gate0/<id>.md` 至少记录日期、区服、编辑器和游戏构建号、设备/系统、探针提交、GIL SHA-256、准备步骤、阈值、每项观测结果、失败样本及复现步骤。增加独立的一行 `Platform evidence: https://…` 指向可访问的原始日志、导出摘要、录屏或证据索引。证据公开范围由维护者按平台权限控制，不把账号和敏感数据提交到仓库。
+每个实验证据文件 `docs/verification/gate0/<id>.md` 至少记录日期、区服、编辑器和游戏构建号、设备/系统、探针提交、GIL SHA-256、准备步骤、阈值、每项观测结果、失败样本及复现步骤。通过后填写独立的三行 `Result: PASS`、`Platform evidence: https://…` 和 `Verification pull request: https://github.com/Primostone-Battlegrounds/Primostone-Battlegrounds/pull/<number>`。原始日志、导出摘要及录屏需可供复核。证据公开范围由维护者按平台权限控制，账号和敏感数据留在仓库之外。
 
-`g0-7` 的证据需索引六项已合并记录，并加入 `Verification pull request: https://github.com/Primostone-Battlegrounds/Primostone-Battlegrounds/pull/<number>`。独立 Reviewer 对最终 head 给出 GitHub APPROVED，并在原始材料中核对和抽测。实际 merge commit 必须能从 `main` 到达，且合入后才能启动下游任务。检查会验证合并记录、当前证据与当时一致、作者之外的最终 head 审批和 `main` 上的完成状态。机器核对结构和 GitHub 记录，平台能力通过与否由实际观测和独立复核决定。
+`g0-7` 的报告同样包含这三行，另对六个已合并实验各写一行 `Experiment evidence: <id> <sha256>`。SHA-256 来自 `main` 上对应报告的原始 Git blob，例如 `git show 'origin/main:docs/verification/gate0/g0-1.md' | sha256sum`。检查会核对每项报告、合入其完成状态的 PR、汇总摘要，以及合入前由作者之外的审查者对汇总 PR 最终 head 提交的 GitHub APPROVED。汇总合入 `main` 后才能启动下游。独立 Reviewer 需查看原始材料并在实机抽测，机器核对用于确认审批及证据对应的提交。
 
 ## 变更规模
 
