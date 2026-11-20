@@ -38,7 +38,7 @@ Implementer-Agent: opencode:<实现会话 ID>
 实际读过的范围、执行命令和结果，及未能实测的内容。
 ```
 
-CI 读取有仓库关系账号提交的最新 head 评审记录，核对 SHA、不同会话标识、PASS 和报告段落；后续 FAIL 或新推送使通过失效。提交评审后，编排者必须用 `gh run rerun <当前 head 的原始 pull_request run ID>` 重跑真实 PR 检查；不得用 review 事件的同名绿灯代替，因为固定版 OpenHarness 只接受 `pull_request` 来源。重新评审后也执行此步骤。机器验证记录绑定，AI 会话真实性属于维护者信任边界；不要求原生 GitHub approving review，也不把模板本身当作评审。提醒如有需要用原生 review request，个人 Watch 由账号持有人选择。
+CI 读取有仓库写权限账号提交的最新 head 评审记录，核对 SHA、不同会话标识、PASS 和报告段落；后续 FAIL 或新推送使通过失效。账号信任通过 repository permission API 核对，不依赖对调用者可见性不同的组织 membership 字段。提交评审后，编排者必须用 `gh run rerun <当前 head 的原始 pull_request run ID>` 重跑真实 PR 检查；不得用 review 事件的同名绿灯代替，因为固定版 OpenHarness 只接受 `pull_request` 来源。重新评审后也执行此步骤。机器验证记录绑定，AI 会话真实性属于维护者信任边界；不要求原生 GitHub approving review，也不把模板本身当作评审。提醒如有需要用原生 review request，个人 Watch 由账号持有人选择。
 
 ## 发布契约与 SemVer
 

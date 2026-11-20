@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 import unittest
 import copy
+import json
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
@@ -115,6 +116,22 @@ class Routes(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'freeze task authority'):
                 bootstrap.validate_pr(None, 'b', 'c', {'tasks': {}}, {'repository': REPO},
                                       event('chore/release-fix-1', 'release/0.0.1'))
+
+    def test_review_trust_uses_write_permission_not_membership_visibility(self):
+        review = {'id': 1, 'submitted_at': '2026-11-20T01:00:00Z', 'commit_id': 'a' * 40,
+                  'user': {'login': 'writer'}, 'author_association': 'CONTRIBUTOR', 'state': 'COMMENTED',
+                  'body': 'AI-Review: PASS\nReviewed-Head: ' + 'a' * 40 +
+                  '\nReviewer-Agent: subagent:1\nImplementer-Agent: opencode:1\n'
+                  '\n## Findings\nNo unresolved findings.\n## Verification\nTests and diff inspected.'}
+        pr = event('chore/test', 'develop')['pull_request']
+        with patch.object(flow, 'run', return_value=json.dumps([[review]])), \
+                patch.object(flow, 'api', return_value={'permission': 'admin'}):
+            flow.ai_review({'repository': REPO}, pr)
+        review['author_association'] = 'MEMBER'
+        with patch.object(flow, 'run', return_value=json.dumps([[review]])), \
+                patch.object(flow, 'api', return_value={'permission': 'read'}):
+            with self.assertRaisesRegex(ValueError, 'AI review'):
+                flow.ai_review({'repository': REPO}, pr)
 
 
 if __name__ == '__main__':

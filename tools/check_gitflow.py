@@ -41,8 +41,8 @@ def ai_review(config, pr):
     observed = [(r.get('commit_id'), r.get('state'), r.get('author_association'),
                  review_record(r, pr['head']['sha'])) for r in records]
     records = [r for r in records if r.get('commit_id') == pr['head']['sha'] and
-               r.get('author_association') in {'OWNER', 'MEMBER', 'COLLABORATOR'} and
-               re.search(r'^AI-Review: ', r.get('body') or '', re.M)]
+               re.search(r'^AI-Review: ', r.get('body') or '', re.M) and
+               api(config, f'collaborators/{r["user"]["login"]}/permission')['permission'] in {'admin', 'write'}]
     require(records and review_record(max(records, key=lambda r: (r['submitted_at'], r['id'])), pr['head']['sha']),
             f'PR #{pr["number"]} needs independent AI review for {pr["head"]["sha"]}; observed {observed}')
 
