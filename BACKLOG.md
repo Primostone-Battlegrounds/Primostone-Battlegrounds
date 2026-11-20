@@ -2,12 +2,14 @@
 
 本入口与 [backlog/tasks](backlog/tasks/) 组成唯一工作权威，状态、依赖、分配和独占文件仅以 GitHub `develop` 的已合入任务文件为准。[OpenHarness Backlog 契约](https://github.com/FurinyaDev/OpenHarness/blob/aebb0c2255a5df275491009285c1a23d03f90771/docs/backlog-profile.md) · [GitFlow 与 AI 评审](docs/architecture/gitflow.md)
 
-| 阶段 | 可交付结果 |
+候选规则以 [规则与接口基线](docs/architecture/product-baseline.md) 为准。实现 UI 前读 [棋阵界面和原创美术](docs/architecture/ui-art-direction.md)。源码取样与验证见 [社区实现调研](docs/architecture/community-implementations.md)；迭代与发行验收见 [发布路线](docs/architecture/release-roadmap.md)。
+
+| 阶段 | 版本与交付 |
 | --- | --- |
-| Gate 0 | [导入和试玩](backlog/tasks/g0-1%20-%20GIL%20构建导入与运行.md) → [运行时](backlog/tasks/g0-2%20-%20运行时与平台%20API.md) → [重放](backlog/tasks/g0-3%20-%20确定性与战斗重放.md)、[恢复](backlog/tasks/g0-4%20-%20状态编码与恢复.md)、[四人](backlog/tasks/g0-5%20-%20四人同步与失败恢复.md)、[性能](backlog/tasks/g0-6%20-%20PC%20与移动端预算和交互.md) → [G0-VERIFY](backlog/tasks/g0-7%20-%20G0-VERIFY.md) |
-| M0 | 纯 Lua 状态、随机、经济、招募、战斗、对局闭环和快照 |
-| M1 | 可玩垂直切片先合入，再扩到 1 真人 + 7 AI、40–50 个原创随从的单人 MVP |
-| M2 | 按实测平台路径实现四人联机、故障恢复以及 PC / 移动端验收 |
+| Gate 0 | `0.0.1`，六项实机实验证据和 [G0-VERIFY](backlog/tasks/g0-7%20-%20G0-VERIFY.md) 独立复核合入。 |
+| M0 | `0.1.0`，确定性 Lua 核心，两席终局及快照重放验证。 |
+| M1 | `0.2.0`，1 真人 + 1 AI 的垂直切片，有原创规则与样例美术。`0.3.0`，1 真人 + 7 AI、40–50 个原创随从、完整界面与单人恢复。 |
+| M2 | `0.4.0`，四人私有试玩、权威协议、隐私、重连、PC 和移动发布候选。 |
 
 OpenHarness 规定原生 ID 为字母前缀加数字。`g0-7` 是 `G0-VERIFY` 的任务 ID，GitHub PR 使用 `Work-Item: g0-7`。模型字段在原生契约中对应如下。
 
@@ -25,6 +27,22 @@ OpenHarness 规定原生 ID 为字母前缀加数字。`g0-7` 是 `G0-VERIFY` �
 3. 工作前核对全部远端分支、打开的 PR、合入记录：`git ls-remote --heads origin 'refs/heads/task/*'`、`gh pr list --state open --json number,headRefName,baseRefName,author,url`。同任务分支已存在时必须协调续接或移交。
 4. 依赖合入且无独占路径冲突后，从已验证的 develop 提交用 GitHub POST 原子创建 `refs/heads/task/<id>`；失败就重新同步。再次检查目标漂移、全部 PR 与路径占用后，用独立 worktree 跟踪该引用，并运行 `workspace --task <id> --change <short-name> --bind`。每棵工作树仅一个 Session 写入。OpenHarness 不提供远端租约；新增冲突先走依赖调整 PR。
 5. 任务 PR 只回 develop，正文有且仅有一行 `Work-Item: <id>`，提交同一任务的完成状态和真实证据。只有 develop 的实际 merge SHA 才算 Done。另一个 subagent / AI 审查最终 head，记录协议见 GitFlow；通过 CI 后按 OpenHarness `integrate --pr N`，之后 `release`（此命令释放工作树，不等于发布版本）。计划、依赖、分配调整走独立维护 PR。
+
+认领时把 `TASK_ID`、`CHANGE_NAME` 和 `TASK_WORKTREE` 设为已验证的任务 ID、短名和当前 Session 的独立路径，在仓库根目录执行。
+
+```sh
+git fetch --prune origin
+gh api --method POST repos/Primostone-Battlegrounds/Primostone-Battlegrounds/git/refs -f "ref=refs/heads/task/${TASK_ID}" -f "sha=${VERIFIED_DEVELOP_SHA}"
+```
+
+GitHub POST 成功才获得认领权。引用已存在或请求失败时重新同步并选择任务。成功并完成并发复查后创建本地工作树。
+
+```sh
+git fetch origin "refs/heads/task/${TASK_ID}:refs/remotes/origin/task/${TASK_ID}"
+git worktree add --track -b "task/${TASK_ID}" "${TASK_WORKTREE}" "origin/task/${TASK_ID}"
+cd "${TASK_WORKTREE}"
+python3 -m openharness --repo . workspace --task "${TASK_ID}" --change "${CHANGE_NAME}" --bind
+```
 
 OpenHarness 将工作树绑定到整个 Backlog 摘要。目标变更后，在最新 origin/develop 核对任务仍归当前执行者、依赖完成且范围未变；提交当前工作，将最新 develop merge 进任务分支并解决冲突。干净工作树用原 ID 和 change 名重新 `workspace --bind`，运行 preflight 和候选验证。推送原分支，重新获得最新 head 的 AI 评审与真实 CI。已移交或完成时由维护者协调。
 
