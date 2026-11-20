@@ -38,11 +38,13 @@ def ai_review(config, pr):
                          f'repos/{config["repository"]}/pulls/{pr["number"]}/reviews'))
     records = [r for page in pages for r in page if r.get('submitted_at') and
                (not pr.get('merged_at') or r['submitted_at'] <= pr['merged_at'])]
+    observed = [(r.get('commit_id'), r.get('state'), r.get('author_association'),
+                 review_record(r, pr['head']['sha'])) for r in records]
     records = [r for r in records if r.get('commit_id') == pr['head']['sha'] and
                r.get('author_association') in {'OWNER', 'MEMBER', 'COLLABORATOR'} and
                re.search(r'^AI-Review: ', r.get('body') or '', re.M)]
     require(records and review_record(max(records, key=lambda r: (r['submitted_at'], r['id'])), pr['head']['sha']),
-            f'PR #{pr["number"]} needs independent AI review bound to its current head')
+            f'PR #{pr["number"]} needs independent AI review for {pr["head"]["sha"]}; observed {observed}')
 
 
 def reviewed(config, pr):
