@@ -182,7 +182,14 @@ def validate_pr(repo, base, head, candidate, config, event):
                 [base, pr['head']['sha']], 'Test the exact GitHub PR merge candidate')
         if route(base, head, config, event):
             if pr['head']['ref'] != 'main':
-                verify_merged_gate(repo, head, config, require_main=pr['head']['ref'].startswith('hotfix/'))
+                corrections = set(run('git', 'diff', '--name-only', pr.get('_release_source', base), head).splitlines())
+                require(not any(p.startswith(('backlog/', '.harness/', '.github/')) or
+                                p in {'BACKLOG.md', 'AGENTS.md', 'tools/check_bootstrap.py', 'tools/check_gitflow.py'}
+                                for p in corrections), 'Release and hotfix paths must freeze task authority and controls')
+                downstream_fix = any(not p.startswith(('experiments/gate0/', REPORTS, 'docs/releases/'))
+                                     for p in corrections)
+                verify_merged_gate(repo, head, config,
+                                   require_main=pr['head']['ref'].startswith('hotfix/') or downstream_fix)
                 if not pr['head']['ref'].startswith('release/'):
                     changes(base, head)
             ai_review(config, pr)
@@ -213,9 +220,10 @@ def validate_pr(repo, base, head, candidate, config, event):
     baseline = local_corpus(repo, base, baseline_config['work'])
     old = baseline['tasks']
     finished = {k for k in tasks if tasks[k]['status'] == 'Done' and old.get(k, {}).get('status') != 'Done'}
+    started = {k for k in tasks if tasks[k]['status'] == 'In Progress' and old.get(k, {}).get('status') != 'In Progress'}
     active_paths = changed - maintenance
     downstream = {p for p in active_paths if not p.startswith(('experiments/gate0/', REPORTS))}
-    if downstream or finished - EXPERIMENTS - {GATE}:
+    if downstream or (finished | started) - EXPERIMENTS - {GATE} or item in old and old[item]['milestone'] != 'G0':
         require(all(old[k]['status'] == 'Done' for k in EXPERIMENTS | {GATE}),
                 'G0-VERIFY and all six passes must already be on target before downstream work')
         if event:

@@ -38,7 +38,7 @@ Implementer-Agent: opencode:<实现会话 ID>
 实际读过的范围、执行命令和结果，及未能实测的内容。
 ```
 
-CI 读取有仓库关系账号提交的最新 head 评审记录，核对 SHA、不同会话标识、PASS 和报告段落；后续 FAIL 或新推送使通过失效。重新评审并重新运行真实 CI。机器验证记录绑定，AI 会话真实性属于维护者信任边界；不要求原生 GitHub approving review，也不把模板本身当作评审。提醒如有需要用原生 review request，个人 Watch 由账号持有人选择。
+CI 读取有仓库关系账号提交的最新 head 评审记录，核对 SHA、不同会话标识、PASS 和报告段落；后续 FAIL 或新推送使通过失效。提交评审后，编排者必须用 `gh run rerun <当前 head 的原始 pull_request run ID>` 重跑真实 PR 检查；不得用 review 事件的同名绿灯代替，因为固定版 OpenHarness 只接受 `pull_request` 来源。重新评审后也执行此步骤。机器验证记录绑定，AI 会话真实性属于维护者信任边界；不要求原生 GitHub approving review，也不把模板本身当作评审。提醒如有需要用原生 review request，个人 Watch 由账号持有人选择。
 
 ## 发布契约与 SemVer
 
@@ -58,7 +58,7 @@ release 分支的 `source` 必须是已验收且实际位于 develop 历史的�
 }
 ```
 
-示例为结构说明，不是有效证据。CI 回查 source 自上次 main 以来的 develop 首父提交，每项必须是已独立 AI 评审的实际 PR 合并；task_prs 精确覆盖其中全部任务 PR，修正必须来自该 release 分支已审查合入的 PR。发布 PR 绑定精确候选、真实材料 URL 和 SHA-256；评审者复算产物摘要、核对设备/客户端/编辑器版本、兼容矩阵和回滚演练。CI 不把 URL 格式检查冒充产物验收。
+示例为结构说明，不是有效证据。CI 回查 source 自上次 main 以来的 develop 首父提交，每项必须是已独立 AI 评审的实际 PR 合并；task_prs 精确覆盖其中全部任务 PR，修正必须来自该 release 分支已审查合入的 PR。修正与 hotfix 冻结 Backlog、任务授权和 CI 控制文件；不得完成或认领任务。任何非 Gate 0 修正同样要求首次 Gate 0 已进入 main。发布 PR 绑定精确候选、真实材料 URL 和 SHA-256；评审者复算产物摘要、核对设备/客户端/编辑器版本、兼容矩阵和回滚演练。CI 不把 URL 格式检查冒充产物验收。
 
 发布 PR 合并之后，维护者回读实际 main merge SHA；确认该 SHA 的内容与验收 candidate 仅差清单，检查最终 CI，才创建不可变 `vX.Y.Z` 标签并发布，将清单、摘要、任务/修正 PR、候选和 main merge SHA 放入 GitHub Release。使用 `gh api .../git/refs` 原子创建标签，`gh release create vX.Y.Z --verify-tag --target <MAIN_MERGE_SHA> ...`；标签已存在时先核对，不移动标签。发布动作不能由普通 develop 合并触发。
 

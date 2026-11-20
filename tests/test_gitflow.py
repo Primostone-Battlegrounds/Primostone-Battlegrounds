@@ -2,17 +2,19 @@
 import sys
 from pathlib import Path
 import unittest
+import copy
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
 import check_gitflow as flow
+import check_bootstrap as bootstrap
 
 REPO = 'Primostone-Battlegrounds/Primostone-Battlegrounds'
 
 
 def event(branch, target, body=''):
     return {'number': 99, 'pull_request': {
-        'number': 99, 'body': body, 'head': {'ref': branch, 'sha': 'a' * 40,
+        'number': 99, 'body': body, 'user': {'login': 'actor'}, 'head': {'ref': branch, 'sha': 'a' * 40,
         'repo': {'full_name': REPO}}, 'base': {'ref': target}}}
 
 
@@ -68,6 +70,33 @@ class Routes(unittest.TestCase):
     def test_native_approval_alone_is_not_ai_review(self):
         self.assertFalse(flow.review_record({'commit_id': 'a' * 40, 'state': 'APPROVED',
                                             'body': 'LGTM'}, 'a' * 40))
+
+    def test_release_correction_cannot_change_task_authority(self):
+        data = event('chore/release-fix-1', 'release/0.0.1')
+        with patch.object(bootstrap, 'run', side_effect=['b\n' + 'a' * 40,
+                  'backlog/tasks/m0-1 - task.md\nsrc/unowned.lua']), \
+                patch.object(bootstrap, 'verify_merged_gate') as gate, \
+                patch.object(bootstrap, 'changes', return_value=set()), \
+                patch.object(bootstrap, 'ai_review'):
+            with self.assertRaisesRegex(ValueError, 'freeze task authority'):
+                bootstrap.validate_pr(None, 'b', 'c', {'tasks': {}}, {'repository': REPO}, data)
+            gate.assert_not_called()
+
+    def test_metadata_only_downstream_start_requires_main_promotion(self):
+        old = {f'g0-{i}': {'status': 'Done', 'milestone': 'G0'} for i in range(1, 8)}
+        old['m0-1'] = {'status': 'To Do', 'milestone': 'M0', 'modified_files': []}
+        tasks = copy.deepcopy(old)
+        tasks['m0-1']['status'] = 'In Progress'
+        with patch.object(bootstrap, 'run', side_effect=['b\n' + 'a' * 40, 'config',
+                         'b\n' + 'a' * 40]), \
+                patch.object(bootstrap, 'changes', return_value={'backlog/tasks/m0-1 - task.md'}), \
+                patch.object(bootstrap, 'read_blob', return_value='{"work": {}}'), \
+                patch.object(bootstrap, 'local_corpus', return_value={'tasks': old}), \
+                patch.object(bootstrap, 'authorize'), patch.object(bootstrap, 'ai_review'), \
+                patch.object(bootstrap, 'verify_merged_gate', side_effect=ValueError('main promotion absent')):
+            with self.assertRaisesRegex(ValueError, 'main promotion absent'):
+                bootstrap.validate_pr(None, 'b', 'c', {'tasks': tasks}, {'repository': REPO},
+                                      event('task/m0-1', 'develop', 'Work-Item: m0-1'))
 
 
 if __name__ == '__main__':

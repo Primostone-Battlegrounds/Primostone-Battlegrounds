@@ -65,6 +65,7 @@ def release(base, head, config, pr):
     require(manifest['version'] == version and re.fullmatch(r'https://\S+', manifest['validation_evidence']),
             'Release version and validation evidence must match')
     source, candidate = manifest['source'], manifest['candidate']
+    pr['_release_source'] = source
     require(all(re.fullmatch('[0-9a-f]{40}', sha) for sha in (source, candidate)), 'Use exact release SHAs')
     ancestor(base, source)
     ancestor(source, candidate)
