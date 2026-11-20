@@ -5,6 +5,7 @@
 - [工作入口与 Gate 0](BACKLOG.md)
 - [参考规则、原创设计与平台差异](docs/architecture/requirements-and-gaps.md)
 - [Bootstrap 验证记录](docs/verification/bootstrap.md)
+- [GitFlow、AI 独立评审与发布](docs/architecture/gitflow.md)
 
 ## 工程入口
 
@@ -23,13 +24,13 @@ python3 -m openharness --repo . entry
 检查已提交的本地候选，先更新目标引用。`verify` 在干净独立工作树运行 Backlog 验证。第二条检查按目标差异计算改动规模与 Gate 阻塞。GitHub Check 还读取 PR 身份和合入证据。
 
 ```sh
-git fetch origin main
-python3 -m openharness --repo . verify --head HEAD --base origin/main
-python3 tools/check_bootstrap.py --base origin/main
+git fetch origin develop main
+python3 -m openharness --repo . verify --head HEAD --base origin/develop
+python3 tools/check_bootstrap.py --base origin/develop
 ```
 
 ### GitHub 接入与升级
 
-Bootstrap PR 独立审查后合入 `main`，维护者在启动 Worker 前确认 `main` 规则生效。GitHub Ruleset 要求 PR、至少一位有权且非作者的审批、过时审批作废、审查线程解决以及 GitHub Actions 的 `Architecture checks` 通过且分支跟上目标。限制直推与绕过，保留 merge commit 方式供 OpenHarness 验证父提交。以第一条实际运行的 Check 核验来源应用，安装前在 GitHub 再观察有效规则。cooperative 模式自身只提供客户端级保障，无需原生 OpenHarness 部署或激活。若仓库的原生保护未启用，Worker 启动继续阻塞。[工作模式](https://github.com/FurinyaDev/OpenHarness/blob/aebb0c2255a5df275491009285c1a23d03f90771/docs/cooperative-workflow.md) · [GitHub Rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets)
+Bootstrap 独立 AI 复核并解决问题后，维护者确认 main/develop 的有效 Ruleset 和三条 PR 路径。规则要求 PR、线程解决、跟上目标、来自 GitHub Actions App `15368` 的真实 `Architecture checks`。独立 subagent / AI 的最终 head 评审由 CI 核对，不要求第二个 GitHub 账号批准。仅允许 merge commit，禁止直推、强推、删除，绕过为空。cooperative 模式自身仅提供客户端保障，CI 维护者仍属信任边界，不宣称无法被恶意控制面修改绕过。[固定版本工作模式](https://github.com/FurinyaDev/OpenHarness/blob/aebb0c2255a5df275491009285c1a23d03f90771/docs/cooperative-workflow.md)
 
 升级时以独立控制 PR 同步本入口和工作流的不可变 SHA，核对上游源码、当前配置兼容性和候选验证。已发布 `v0.3.0` 的自动升级协议仅支持 strict 生成物，此 cooperative 安装由项目 PR 管理，不启用 Renovate 或额外发布任务。[上游升级机制](https://github.com/FurinyaDev/OpenHarness/blob/aebb0c2255a5df275491009285c1a23d03f90771/docs/consumer-upgrades.md)
