@@ -24,11 +24,11 @@
   "profile": "github-backlog-v1",
   "repository": "Primostone-Battlegrounds/Primostone-Battlegrounds",
   "schema": 1,
-  "target": "main",
+  "target": "develop",
   "verification": {
     "commands": [
       [
-        "python3",
+        "python",
         "tools/check_bootstrap.py"
       ]
     ],
@@ -36,7 +36,8 @@
     "environment": {},
     "expected_app_id": 15368,
     "material_inputs": [
-      "tools/check_bootstrap.py"
+      "tools/check_bootstrap.py",
+      "tools/check_gitflow.py"
     ],
     "required_check": "Architecture checks",
     "sandbox_image": null,

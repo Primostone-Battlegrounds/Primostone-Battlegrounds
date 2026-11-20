@@ -1,6 +1,6 @@
 # Backlog
 
-本入口与 [backlog/tasks](backlog/tasks/) 组成唯一工作权威，状态和依赖以 GitHub `main` 的任务文件为准。[OpenHarness Backlog 契约](https://github.com/FurinyaDev/OpenHarness/blob/aebb0c2255a5df275491009285c1a23d03f90771/docs/backlog-profile.md) · [Backlog.md 1.53.0 参考解析器](https://github.com/MrLesk/Backlog.md/blob/fd20f71493fb4eda44b021aa89f257956f17fb71/src/markdown/parser.ts)
+本入口与 [backlog/tasks](backlog/tasks/) 组成唯一工作权威，状态、依赖、分配和独占文件仅以 GitHub `develop` 的已合入任务文件为准。[OpenHarness Backlog 契约](https://github.com/FurinyaDev/OpenHarness/blob/aebb0c2255a5df275491009285c1a23d03f90771/docs/backlog-profile.md) · [GitFlow 与 AI 评审](docs/architecture/gitflow.md)
 
 | 阶段 | 可交付结果 |
 | --- | --- |
@@ -20,13 +20,13 @@ OpenHarness 规定原生 ID 为字母前缀加数字。`g0-7` 是 `G0-VERIFY` �
 
 ## 从无历史 Session 开始
 
-1. 按 [README](README.md) 安装并读取 `entry`。确认 Bootstrap PR 已经独立审查、问题已解决并实际合入，且 main 原生检查与审批规则生效。
-2. 读取 `origin/main` 对应任务。`Blocked` 表示环境、能力或证据缺口；解除条件满足后由维护者的任务编排 PR 修改状态和明确映射执行者。`To Do` 或 `In Progress` 仍须满足全部传递依赖为 Done。初始任务均未分配；有多人并行时由编排 PR 补充真实 GitHub 登录映射，一个任务只配一个执行者。
-3. 在工作前观察远端任务分支、打开的 PR、合入记录。使用 `git ls-remote --heads origin 'refs/heads/codex/backlog-*'` 与 `gh pr list --state open --base main --json number,headRefName,author,url`。已有同任务分支或 PR 时，原执行者续接或维护者协调移交。远端分支和 PR 可显示正在进行的工作，不能成为额外完成状态。
-4. 对合法任务运行 `python3 -m openharness --repo . workspace --task <id> --change <short-name>`，进入返回的独立工作树。每个工作树只由一个 Session 写入。多个 Session 只能并行执行依赖互不阻塞且无路径冲突的任务。OpenHarness 不提供远端租约。出现未规划的文件重叠时先更新本 Backlog 依赖，等该变更合入再开工。
-5. 向目标仓库发出一个任务 PR，正文有且仅有一行 `Work-Item: <id>`，并提供可复查验收证据。完成状态在同一 PR 中提交，其他 Session 只有在确认 `main` 上的结果及实际 merge SHA 后才将其视为 Done。维护者独立审批源码、证据和控制面；已批准后可按 OpenHarness 流程 `integrate --pr N`，之后 `release`。任务分配及控制变更通过独立维护 PR 审查。
+1. 按 [README](README.md) 安装并读取 `entry`。确认 Bootstrap 已经独立 AI 复核、问题解决且实际合入，main/develop 保护有效，迁移和三条 PR 路径验证完成。
+2. 读取 `origin/develop` 对应任务。`Blocked` 表示环境、能力或证据缺口；解除条件满足后由独立维护 PR 修改状态并映射真实执行者。`To Do` 或 `In Progress` 仍须全部传递依赖真实合入为 Done；未分配任务不可认领。
+3. 工作前核对全部远端分支、打开的 PR、合入记录：`git ls-remote --heads origin 'refs/heads/task/*'`、`gh pr list --state open --json number,headRefName,baseRefName,author,url`。同任务分支已存在时必须协调续接或移交。
+4. 依赖合入且无独占路径冲突后，从已验证的 develop 提交用 GitHub POST 原子创建 `refs/heads/task/<id>`；失败就重新同步。再次检查目标漂移、全部 PR 与路径占用后，用独立 worktree 跟踪该引用，并运行 `workspace --task <id> --change <short-name> --bind`。每棵工作树仅一个 Session 写入。OpenHarness 不提供远端租约；新增冲突先走依赖调整 PR。
+5. 任务 PR 只回 develop，正文有且仅有一行 `Work-Item: <id>`，提交同一任务的完成状态和真实证据。只有 develop 的实际 merge SHA 才算 Done。另一个 subagent / AI 审查最终 head，记录协议见 GitFlow；通过 CI 后按 OpenHarness `integrate --pr N`，之后 `release`（此命令释放工作树，不等于发布版本）。计划、依赖、分配调整走独立维护 PR。
 
-OpenHarness 将工作树绑定到整个 Backlog 的摘要。其他任务合入或维护 PR 调整分配后，仍在进行的任务可能需要复绑。先在最新 `origin/main` 核对该任务仍归当前执行者、依赖已完成且工作范围未改变。在原任务工作树提交未保存的改动，将最新 `main` 合入任务分支并解决冲突。在干净工作树用原 ID 和 change 名运行 `python3 -m openharness --repo . workspace --task <id> --change <short-name> --bind`，再运行 `preflight` 和候选验证。推送到原分支，重新获取当前 head 的检查和独立审批。任务已被移交或完成时由维护者协调。
+OpenHarness 将工作树绑定到整个 Backlog 摘要。目标变更后，在最新 origin/develop 核对任务仍归当前执行者、依赖完成且范围未变；提交当前工作，将最新 develop merge 进任务分支并解决冲突。干净工作树用原 ID 和 change 名重新 `workspace --bind`，运行 preflight 和候选验证。推送原分支，重新获得最新 head 的 AI 评审与真实 CI。已移交或完成时由维护者协调。
 
 ## Gate 0 证据与解除条件
 
@@ -34,7 +34,7 @@ OpenHarness 将工作树绑定到整个 Backlog 的摘要。其他任务合入�
 
 每个实验证据文件 `docs/verification/gate0/<id>.md` 至少记录日期、区服、编辑器和游戏构建号、设备/系统、探针提交、GIL SHA-256、准备步骤、阈值、每项观测结果、失败样本及复现步骤。通过后填写独立的三行 `Result: PASS`、`Platform evidence: https://…` 和 `Verification pull request: https://github.com/Primostone-Battlegrounds/Primostone-Battlegrounds/pull/<number>`。原始日志、导出摘要及录屏需可供复核。证据公开范围由维护者按平台权限控制，账号和敏感数据留在仓库之外。
 
-`g0-7` 的报告同样包含这三行，另对六个已合并实验各写一行 `Experiment evidence: <id> <sha256>`。SHA-256 来自 `main` 上对应报告的原始 Git blob，例如 `git show 'origin/main:docs/verification/gate0/g0-1.md' | sha256sum`。检查会核对每项报告、合入其完成状态的 PR、汇总摘要，以及合入前由作者之外的审查者对汇总 PR 最终 head 提交的 GitHub APPROVED。汇总合入 `main` 后才能启动下游。独立 Reviewer 需查看原始材料并在实机抽测，机器核对用于确认审批及证据对应的提交。
+`g0-7` 的报告同样包含这三行，另对六个已合并实验各写一行 `Experiment evidence: <id> <sha256>`。SHA-256 来自 develop 上对应报告的原始 Git blob，例如 `git show 'origin/develop:docs/verification/gate0/g0-1.md' | sha256sum`。检查核对每项实验及汇总的实际任务 PR 合并记录和最终 head 的独立 AI 评审。AI 必须审阅原始实机材料；实机操作和抽测由有环境的操作者执行，模型输出不能替代观测。汇总经首次 `release/0.0.1` 实际进入 main，且报告摘要一致后，才允许启动 M0–M2。
 
 ## 变更规模
 
