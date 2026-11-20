@@ -1,0 +1,59 @@
+{
+  "authorities": {
+    "change": "github-pull-requests",
+    "evidence": "github-checks",
+    "integration": "github-rules",
+    "product": "repository-docs",
+    "revision": "github-target-ref",
+    "work": "repository-backlog",
+    "workspace": "git-worktree"
+  },
+  "envelope": {
+    "excluded_transitions": [
+      "arbitrary-local-writes",
+      "administrator-policy-reconfiguration"
+    ],
+    "trusted_actors": [
+      "repository-admins",
+      "ci-maintainers",
+      "local-executor"
+    ],
+    "workspace_writers": "single"
+  },
+  "mode": "cooperative",
+  "profile": "github-backlog-v1",
+  "repository": "Primostone-Battlegrounds/Primostone-Battlegrounds",
+  "schema": 1,
+  "target": "main",
+  "verification": {
+    "commands": [
+      [
+        "python3",
+        "tools/check_bootstrap.py"
+      ]
+    ],
+    "controller": null,
+    "environment": {},
+    "expected_app_id": 15368,
+    "material_inputs": [
+      "tools/check_bootstrap.py"
+    ],
+    "required_check": "Architecture checks",
+    "sandbox_image": null,
+    "workflow": ".github/workflows/architecture.yml"
+  },
+  "work": {
+    "actors": {
+      "@furinyadev": "FurinyaDev"
+    },
+    "directories": [
+      "backlog/tasks"
+    ],
+    "done_status": "Done",
+    "format": "backlog-md-1.53-subset-v1",
+    "ready_statuses": [
+      "To Do",
+      "In Progress"
+    ]
+  }
+}
