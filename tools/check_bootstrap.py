@@ -182,7 +182,8 @@ def validate_pr(repo, base, head, candidate, config, event):
                 [base, pr['head']['sha']], 'Test the exact GitHub PR merge candidate')
         if route(base, head, config, event):
             if pr['head']['ref'] != 'main':
-                corrections = set(run('git', 'diff', '--name-only', pr.get('_release_source', base), head).splitlines())
+                corrections = set(filter(None, run('git', 'diff', '--name-only', '-z', '--no-renames',
+                                                  pr.get('_release_source', base), head).split('\0')))
                 require(not any(p.startswith(('backlog/', '.harness/', '.github/')) or
                                 p in {'BACKLOG.md', 'AGENTS.md', 'tools/check_bootstrap.py', 'tools/check_gitflow.py'}
                                 for p in corrections), 'Release and hotfix paths must freeze task authority and controls')

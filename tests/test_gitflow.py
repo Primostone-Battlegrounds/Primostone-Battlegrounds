@@ -74,7 +74,7 @@ class Routes(unittest.TestCase):
     def test_release_correction_cannot_change_task_authority(self):
         data = event('chore/release-fix-1', 'release/0.0.1')
         with patch.object(bootstrap, 'run', side_effect=['b\n' + 'a' * 40,
-                  'backlog/tasks/m0-1 - task.md\nsrc/unowned.lua']), \
+                  'backlog/tasks/m0-1 - task.md\0src/unowned.lua\0']), \
                 patch.object(bootstrap, 'verify_merged_gate') as gate, \
                 patch.object(bootstrap, 'changes', return_value=set()), \
                 patch.object(bootstrap, 'ai_review'):
@@ -97,6 +97,24 @@ class Routes(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'main promotion absent'):
                 bootstrap.validate_pr(None, 'b', 'c', {'tasks': tasks}, {'repository': REPO},
                                       event('task/m0-1', 'develop', 'Work-Item: m0-1'))
+
+    def test_actual_chinese_task_filename_cannot_bypass_release_freeze(self):
+        path = 'backlog/tasks/m0-1 - 规则值类型与状态工厂.md'
+
+        def git_output(*argv):
+            if 'rev-parse' in argv:
+                return 'b\n' + 'a' * 40
+            # Exercise Git's real quoted/raw filename serialization, not a hand-written escape.
+            return flow.run('git', '-c', 'core.quotePath=true', 'ls-files',
+                            *(['-z'] if '-z' in argv else []), '--', path)
+
+        with patch.object(bootstrap, 'run', side_effect=git_output), \
+                patch.object(bootstrap, 'verify_merged_gate'), \
+                patch.object(bootstrap, 'changes', return_value=set()), \
+                patch.object(bootstrap, 'ai_review'):
+            with self.assertRaisesRegex(ValueError, 'freeze task authority'):
+                bootstrap.validate_pr(None, 'b', 'c', {'tasks': {}}, {'repository': REPO},
+                                      event('chore/release-fix-1', 'release/0.0.1'))
 
 
 if __name__ == '__main__':
